@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { lookup, isAgentEmail, domains, listVersion } from "agent-email-domains";
+import { lookup, isAgentEmail, scoreEmail, domains, listVersion } from "agent-email-domains";
 
 const require = createRequire(import.meta.url);
 const json = require("agent-email-domains/domains.json");
@@ -90,4 +90,47 @@ test("exports the list version and the raw JSON", () => {
 test("data is read-only", () => {
   assert.ok(Object.isFrozen(domains));
   assert.ok(Object.isFrozen(domains[0]));
+});
+
+test("scoring is off by default", () => {
+  assert.equal(isAgentEmail("signup-bot@example.com"), false);
+  assert.equal(isAgentEmail("signup-bot@example.com", { scoring: true }), true);
+  assert.equal(isAgentEmail("bot@agentmail.to"), true);
+});
+
+test("scoreEmail finds simple signals", () => {
+  const cases = {
+    "acme.orders.k7m2x9q4v8nc@revdokumail.com": [1, ["listed_domain", "random_token"]],
+    "signup-bot@example.com": [0.6, ["agent_word"]],
+    "agent-3f9c@company.com": [0.6, ["agent_word"]],
+    "Support Assistant <my.assistant@example.com>": [0.6, ["agent_word"]],
+    "jane+k7m2x9q4@gmail.com": [0.6, ["random_token"]],
+    "550e8400-e29b-41d4-a716-446655440000@example.com": [0.9, ["random_token", "long_digits"]],
+    "test12345@example.com": [0.6, ["test_word", "long_digits"]],
+    "john23232@gmail.com": [0.3, ["long_digits"]],
+    "jane4821@gmail.com": [0.3, ["long_digits"]],
+    "qa+run42@example.com": [0.3, ["test_word"]],
+  };
+  for (const [email, [score, signals]] of Object.entries(cases)) {
+    assert.deepEqual(scoreEmail(email), { score, signals }, email);
+  }
+});
+
+test("scoreEmail leaves ordinary personal addresses at 0", () => {
+  const people = ["john.doe@gmail.com", "jane1987@gmail.com", "mike_2000@yahoo.com", "j.smith23@outlook.com", "ai.chen@gmail.com", "ci.wang@qq.com", "talbot@gmail.com", "robert.testa@gmail.com", "contestant@example.com", "agentcarter@example.com", "kim2024@gmail.com", "maria.garcia84@hotmail.com", "li.wei1990@163.com"];
+  for (const email of people) assert.deepEqual(scoreEmail(email), { score: 0, signals: [] }, email);
+});
+
+test("threshold controls what scoring flags", () => {
+  assert.equal(isAgentEmail("john23232@gmail.com", { scoring: true }), false);
+  assert.equal(isAgentEmail("john23232@gmail.com", { scoring: true, threshold: 0.3 }), true);
+});
+
+test("scoreEmail never throws and is fast", () => {
+  for (const value of ["", "@", "a@", null, undefined, 42, {}, "bot"]) {
+    assert.deepEqual(scoreEmail(value), { score: 0, signals: [] }, String(value));
+  }
+  const started = performance.now();
+  scoreEmail(`${"k7".repeat(500_000)}@example.com`);
+  assert.ok(performance.now() - started < 1000);
 });

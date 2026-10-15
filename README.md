@@ -7,15 +7,20 @@ npm install agent-email-domains
 ```
 
 ```js
-import { lookup, isAgentEmail } from "agent-email-domains";
+import { lookup, isAgentEmail, scoreEmail } from "agent-email-domains";
 
 lookup("bot@revdokumail.com");
 // { host: "revdokumail.com", matched: "revdokumail.com", provider: "Revdoku", category: "agent_inbox" }
 isAgentEmail("jane@gmail.com"); // false
+
+// Optional scoring of the address itself. Off by default.
+scoreEmail("signup-bot@example.com"); // { score: 0.6, signals: ["agent_word"] }
+isAgentEmail("signup-bot@example.com", { scoring: true }); // true (threshold 0.5)
 ```
 
 - Accepts `bot@example.com`, `Bot <bot@example.com>` or a domain. Subdomains match their parent: `x@abc.mailosaur.net` matches `mailosaur.net`. Invalid input returns `null`.
 - `isAgentEmail()` is true for both categories. For AI agents only: `lookup(email)?.category === "agent_inbox"`.
+- `scoreEmail()` signals: `listed_domain` 1, `random_token` 0.6 (`k7m2x9q4v8nc`, UUIDs), `agent_word` 0.6 (`bot`, `agent`, `gpt`…), `test_word` 0.3, `long_digits` 0.3 (`john23232`). It is a hint for routing or review, not proof.
 - Zero dependencies, about 3 KB. ESM and CommonJS, with TypeScript types. Works in Node.js 18+, Deno, browsers and edge runtimes.
 - Also exports `domains` (domain, provider, category) and `listVersion`. Evidence and notes are in `agent-email-domains/domains.json`.
 - Route matches instead of blocking them: mark the account as an agent and offer your API plan (`agent_inbox`), or allow test inboxes in staging (`test_inbox`).
