@@ -1,0 +1,87 @@
+name: Release
+
+# Runs on the 1st of each month, after the list release. Gets the latest list release.
+# When the list changed, bumps the minor version. Publishes any version that is not on npm yet,
+# so a version bumped by hand for a code fix is also published. Run it by hand to release sooner.
+on:
+  schedule:
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: npm 11.5.1 or later is required for trusted publishing
+        run: npm install -g npm@11
+      - name: Get the latest list release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/sync-list.mjs --latest
+      - name: Pick the version
+        id: version
+        run: |
+          if ! git diff --quiet -- data; then
+            list=$(node -p "require('./data/SOURCE.json').list_version")
+            npm version minor --no-git-tag-version
+            version=$(node -p "require('./package.json').version")
+            node -e '
+              const fs = require("fs");
+              const [version, list] = process.argv.slice(1);
+              const date = new Date().toISOString().slice(0, 10);
+              const text = fs.readFileSync("CHANGELOG.md", "utf8");
+              const section = `## ${version} - ${date}\n\n- Update the list to v${list}.\n\n`;
+              const at = text.indexOf("\n## ");
+              fs.writeFileSync("CHANGELOG.md", at === -1 ? `${text.trimEnd()}\n\n${section}` : text.slice(0, at + 1) + section + text.slice(at + 1));
+            ' "$version" "$list"
+          fi
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "agent-email-domains@$version" version > /dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and test
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          npm ci
+          npm run build
+          npm test
+      - name: Commit and tag
+        if: steps.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data package.json package-lock.json CHANGELOG.md
+          git diff --cached --quiet || git commit -m "Release v$VERSION"
+          git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null || git tag "v$VERSION"
+          git push origin HEAD:main "v$VERSION"
+      - name: Publish to npm (trusted publishing, with provenance)
+        if: steps.version.outputs.publish == 'true'
+        run: npm publish --provenance --access public
+      - name: Create the GitHub Release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > notes.md
+          test -s notes.md || echo "See CHANGELOG.md." > notes.md
+          gh release view "v$VERSION" > /dev/null 2>&1 || gh release create "v$VERSION" --title "v$VERSION" --notes-file notes.md
+      - name: Nothing to release
+        if: steps.version.outputs.publish != 'true'
+        run: echo "The list has not changed and v${{ steps.version.outputs.version }} is already on npm."

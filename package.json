@@ -1,0 +1,59 @@
+{
+  "name": "agent-email-domains",
+  "version": "1.0.0",
+  "description": "Detect email addresses on domains that give out inboxes to AI agents and test automation.",
+  "keywords": [
+    "ai-agents",
+    "agent-email",
+    "agentic",
+    "email-domains",
+    "email-validation",
+    "signup",
+    "disposable-email"
+  ],
+  "homepage": "https://github.com/revdoku/agent-email-domains-js#readme",
+  "bugs": "https://github.com/revdoku/agent-email-domains-js/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/revdoku/agent-email-domains-js.git"
+  },
+  "license": "MIT",
+  "author": "Revdoku (https://revdoku.com)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./domains.json": "./data/domains.json",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "data/domains.json"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "prebuild": "node scripts/generate.mjs",
+    "build": "tsup",
+    "test": "node --test test/*.test.mjs test/*.test.cjs",
+    "sync": "node scripts/sync-list.mjs --latest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1",
+    "typescript": "5.9.3"
+  }
+}
