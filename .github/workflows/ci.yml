@@ -11,16 +11,20 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         node: [18, 22, 24]
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node }}
-      - run: npm ci
-      - name: Build (checks data/domains.json against data/SOURCE.json)
-        run: npm run build
-      - run: npm test
-      - run: npm pack --dry-run
+      - run: npm ci --ignore-scripts
+      - name: Build and test (the build checks data/domains.json against data/SOURCE.json)
+        run: npm test
+      - name: Check the package for publishing and type problems
+        if: matrix.node == 22
+        run: |
+          npx --yes publint@0.3.25 --strict
+          npx --yes @arethetypeswrong/cli@0.18.5 --pack .

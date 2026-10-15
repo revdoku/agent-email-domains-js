@@ -3,3 +3,4 @@ dist/
 *.tgz
 .DS_Store
 src/data.generated.ts
+/domains.json

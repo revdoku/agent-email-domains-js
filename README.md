@@ -10,12 +10,14 @@ npm install agent-email-domains
 import { lookup, isAgentEmail } from "agent-email-domains";
 
 lookup("bot@revdokumail.com");
-// { domain: "revdokumail.com", matched: "revdokumail.com", provider: "Revdoku", category: "agent_inbox" }
+// { host: "revdokumail.com", matched: "revdokumail.com", provider: "Revdoku", category: "agent_inbox" }
 isAgentEmail("jane@gmail.com"); // false
 ```
 
-- Subdomains match their parent: `x@abc.mailosaur.net` matches `mailosaur.net`. Invalid input returns `null`.
-- No dependencies. Works in Node.js, browsers and edge runtimes. Also exports `domains` and `listVersion`.
+- Accepts `bot@example.com`, `Bot <bot@example.com>` or a domain. Subdomains match their parent: `x@abc.mailosaur.net` matches `mailosaur.net`. Invalid input returns `null`.
+- `isAgentEmail()` is true for both categories. For AI agents only: `lookup(email)?.category === "agent_inbox"`.
+- Zero dependencies, about 3 KB. ESM and CommonJS, with TypeScript types. Works in Node.js 18+, Deno, browsers and edge runtimes.
+- Also exports `domains` (domain, provider, category) and `listVersion`. Evidence and notes are in `agent-email-domains/domains.json`.
 - Route matches instead of blocking them: mark the account as an agent and offer your API plan (`agent_inbox`), or allow test inboxes in staging (`test_inbox`).
 - Agents that use a custom domain or Gmail are not detected.
 
